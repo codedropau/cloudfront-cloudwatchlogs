@@ -27,6 +27,9 @@ import (
 	"github.com/codedropau/cloudfront-cloudwatchlogs/internal/aws/cloudwatchlogs/logger"
 )
 
+// rateLimit of how many logs per second we can push. See https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html
+const rateLimit = time.Second / 800
+
 func main() {
 	lambda.Start(HandleEvents)
 }
@@ -75,7 +78,9 @@ func handleEvent(ctx context.Context, s3client s3iface.S3API, cwclient cloudwatc
 	if err != nil {
 		return err
 	}
+	throttle := time.Tick(rateLimit)
 	for _, line := range lines {
+		<-throttle
 		err = cwLogger.Add(line)
 		if err != nil {
 			return err
